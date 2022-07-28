@@ -1,0 +1,23 @@
+{
+  "name": "sport-radar",
+  "version": "1.0.0",
+  "description": "Application for Sport Radar tech assessment",
+  "main": "index.js",
+  "repository": "git@github.com:EasiGregory/sport-radar.git",
+  "author": "Gregory McWilliams <fdsleeper@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "typeorm": "typeorm-ts-node-commonjs"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.10",
+    "ts-node": "10.7.0",
+    "typescript": "4.5.2"
+  },
+  "dependencies": {
+    "pg": "^8.4.0",
+    "reflect-metadata": "^0.1.13",
+    "typeorm": "0.3.7"
+  }
+}
