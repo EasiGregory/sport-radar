@@ -1,5 +1,8 @@
+import app from "./app";
 import { AppDataSource } from "./data-source";
 import { User } from "./entity/User";
+
+const { APP_PORT = 8080 } = process.env;
 
 AppDataSource.initialize()
   .then(async () => {
@@ -14,5 +17,9 @@ AppDataSource.initialize()
     console.log("Loading users from the database...");
     const users = await AppDataSource.manager.find(User);
     console.log("Loaded users: ", users);
+
+    app.listen(APP_PORT, () =>
+      console.log(`Borgs-cube-server listening on port ${APP_PORT}!`)
+    );
   })
   .catch((error) => console.log(error));
