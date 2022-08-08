@@ -1,57 +1,106 @@
 import Queue from "bull";
 import { AppDataSource } from "../data-source";
-import { Game } from "../entity/game";
+import { Play } from "../entity/play";
 import { getPlaysByGamePk } from "../service/game";
-import {
-  isGameFinal,
-  isGameLive,
-  transformGameToEntity,
-} from "../util/games-helper";
+import { getPlayerDetails, getPlayerStatsBySeason } from "../service/player";
+import { IGame } from "../type/gameType";
+import { IPlayerDetails, PlayerDetails } from "../type/playerDetailsType";
+import { isGameFinal, isGameLive } from "../util/games-helper";
+import { buildPlayEntity } from "../util/play-helper";
 
-const gameRepository = AppDataSource.getRepository(Game);
-const gamesQueue = new Queue("Game");
-const playsQueue = new Queue("Plays");
+const playRepository = AppDataSource.getRepository(Play);
+const gameQueue = new Queue("Game");
+const playQueue = new Queue("Play");
 
-gamesQueue.process(async (job) => {
+gameQueue.process(async (job) => {
   try {
     const game = job.data;
 
-    const gameEntity = transformGameToEntity(game);
-    await AppDataSource.manager.save(gameEntity);
-
     const plays = await getPlaysByGamePk(game.gamePk);
-    console.log(plays.plays.allPlays.length);
 
-    // TODO: For each of the plays in a game Id like to add the play to the
-    // Plays queue.
-    // TODO: In the Plays queue is where Ill call the player APIs to get
-    // the desired info on the player per Play
-    // TODO: Create Play entity and type
-    // TODO: Save the play to the DB
+    if (plays.plays.allPlays) {
+      plays.plays.allPlays.forEach(async (play) => {
+        playQueue.add({ ...play, gameId: game.gamePk });
+      });
+    }
   } catch (error) {
     Promise.reject(error);
   }
 });
 
-const processGames = async (games) => {
-  games.forEach(async (game) => {
-    const gameExist = await gameRepository.findOneBy({
-      gamePk: game.gamePk,
-    });
+playQueue.process(async (job) => {
+  try {
+    const play = job.data;
 
-    // Need to account for whether all plays for the game has been captured
-    // Do I need to store the game? Using this as a barrier to/not to check for games
+    if (play.players) {
+      play.players.forEach(async (player: IPlayerDetails) => {
+        const eventId = play.about.eventId;
+        const playExists = await playRepository.findOneBy({
+          playerName: player.player.fullName,
+          eventId: eventId,
+        });
 
-    // if (isGameLive(game) && !gameExist) {
-    //   gamesQueue.add(game);
-    // }
+        if (playExists) return;
 
-    // Since there are no games going live for my testing for this assessment I am using
-    // final as a status to track plays
-    if (isGameFinal(game) && !gameExist) {
-      gamesQueue.add(game);
+        if (!playExists) {
+          const playerDetails = await processPlayer(player);
+          const playEntity = buildPlayEntity(playerDetails, play, play.gameId);
+
+          await AppDataSource.manager.save(playEntity);
+        }
+      });
     }
+  } catch (error) {
+    Promise.reject(error);
+  }
+});
+
+// Since there are no games going live for my testing for this assessment I am using
+// final as a status on Jan, 1st 2022 to track games/plays
+const processGames = (games: IGame[]) => {
+  games.forEach(async (game: IGame) => {
+    if (isGameFinal(game)) {
+      gameQueue.add(game);
+    }
+
+    // Uncomment this block to toggle Live status checking
+    // Comment the block above this one out
+    // if (isGameLive(game)) {
+    //   gameQueue.add(game);
+    // }
   });
+};
+
+const processPlayer = async (player: IPlayerDetails) => {
+  const stats = await getPlayerStatsBySeason(player.player.id);
+  const details = await getPlayerDetails(player.player.id);
+  const { stat } = stats[0].splits[0];
+  const {
+    id = null,
+    fullName = null,
+    primaryNumber = null,
+    currentAge = null,
+  } = details.people[0];
+  const position = details.people[0].primaryPosition.name || null;
+  const playerDetails: PlayerDetails = {
+    playerId: id,
+    playerName: fullName,
+    teamId: details.people[0].currentTeam
+      ? details.people[0].currentTeam.id
+      : null,
+    teamName: details.people[0].currentTeam
+      ? details.people[0].currentTeam.name
+      : null,
+    playerAge: currentAge,
+    playerNumber: primaryNumber,
+    playerPosition: position,
+    assists: stat.assists ? stat.assists : null,
+    goals: stat.goals ? stat.goals : null,
+    hits: stat.hits ? stat.hits : null,
+    points: stat.points ? stat.points : null,
+    penaltyMinutes: stat.penaltyMinutes ? stat.penaltyMinutes : null,
+  };
+  return playerDetails;
 };
 
 export default processGames;
