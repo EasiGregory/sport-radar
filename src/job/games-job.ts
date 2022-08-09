@@ -19,9 +19,9 @@ gameQueue.process(async (job) => {
     const plays = await getPlaysByGamePk(game.gamePk);
 
     if (plays.plays.allPlays) {
-      for (const play of plays.plays.allPlays) {
+      plays.plays.allPlays.forEach((play) => {
         playQueue.add({ ...play, gameId: game.gamePk });
-      }
+      });
     }
   } catch (error) {
     Promise.reject(error);
@@ -33,7 +33,7 @@ playQueue.process(async (job) => {
     const play = job.data;
 
     if (play.players) {
-      play.players.forEach(async (player: IPlayerDetails) => {
+      for (const player of play.players) {
         const eventId = play.about.eventId;
         const playExists = await playRepository.findOneBy({
           playerName: player.player.fullName,
@@ -48,7 +48,7 @@ playQueue.process(async (job) => {
 
           await AppDataSource.manager.save(playEntity);
         }
-      });
+      }
     }
   } catch (error) {
     Promise.reject(error);
@@ -58,7 +58,7 @@ playQueue.process(async (job) => {
 // Since there are no games going live for my testing for this assessment I am using
 // final as a status on Jan, 1st 2022 to track games/plays
 const processGames = (games: IGame[]) => {
-  games.forEach(async (game: IGame) => {
+  games.forEach((game: IGame) => {
     if (isGameFinal(game)) {
       gameQueue.add(game);
     }
@@ -74,7 +74,10 @@ const processGames = (games: IGame[]) => {
 const processPlayer = async (player: IPlayerDetails) => {
   const stats = await getPlayerStatsBySeason(player.player.id);
   const details = await getPlayerDetails(player.player.id);
-  const { stat } = stats[0].splits[0];
+  // TODO: Id love to come up with a better way to do this but my brain isnt working atm
+  const { stat } = stats[0].splits[0] || {
+    stat: { assists: 0, goals: 0, hits: 0, points: 0, penaltyMinutes: 0 },
+  };
   const {
     id = null,
     fullName = null,
@@ -94,11 +97,11 @@ const processPlayer = async (player: IPlayerDetails) => {
     playerAge: currentAge,
     playerNumber: primaryNumber,
     playerPosition: position,
-    assists: stat.assists ? stat.assists : null,
-    goals: stat.goals ? stat.goals : null,
-    hits: stat.hits ? stat.hits : null,
-    points: stat.points ? stat.points : null,
-    penaltyMinutes: stat.penaltyMinutes ? stat.penaltyMinutes : null,
+    assists: stat.assists,
+    goals: stat.goals,
+    hits: stat.hits,
+    points: stat.points,
+    penaltyMinutes: stat.penaltyMinutes,
   };
   return playerDetails;
 };

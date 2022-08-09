@@ -29,7 +29,7 @@ SELECT * FROM "play"
 > This gets all data from the play table where a specified ID is given
 
 ```
-SELECT * FROM "play" WHERE "gameId" = '2021020568'
+SELECT * FROM "play" WHERE "gameId" = '2021020573'
 ```
 
 4. Once all the tools needed are installed and in place lets try and fire this bad boy up!
