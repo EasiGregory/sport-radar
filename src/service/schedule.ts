@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const getScheduleByDate = async (date) => {
+export const getScheduleByDate = async (date = "2022-01-01") => {
   console.log(`Getting games schedule for: ${date}`);
 
   try {

@@ -19,9 +19,9 @@ gameQueue.process(async (job) => {
     const plays = await getPlaysByGamePk(game.gamePk);
 
     if (plays.plays.allPlays) {
-      plays.plays.allPlays.forEach(async (play) => {
+      for (const play of plays.plays.allPlays) {
         playQueue.add({ ...play, gameId: game.gamePk });
-      });
+      }
     }
   } catch (error) {
     Promise.reject(error);
